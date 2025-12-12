@@ -1,43 +1,47 @@
-"""Main script for Telegram summary bot."""
+"""Main script for Telegram message processing bot."""
 
 import asyncio
 import schedule
 import time
 from datetime import datetime
-from .workflow import run_summary_workflow
+from .workflow import run_processing_workflow
 
 
-async def generate_and_print_summary():
-    """Generate and print a summary of recent Telegram messages."""
+async def process_and_send_messages():
+    """Process messages from Telegram channels and send results."""
     print(f"\n{'='*60}")
-    print(f"Telegram Summary - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Telegram Processing - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}")
     
     try:
-        summary = await run_summary_workflow()
-        print(summary)
+        result = await run_processing_workflow(
+            source_channels=["BitKogan / Development"],
+            time_period_minutes=10,
+            target_channel="infotest"
+        )
+        print(result)
     except Exception as e:
-        print(f"Error generating summary: {e}")
+        print(f"Error processing messages: {e}")
     
     print(f"{'='*60}\n")
 
 
-def run_scheduled_summary():
-    """Run the summary generation in async context."""
-    asyncio.run(generate_and_print_summary())
+def run_scheduled_processing():
+    """Run the message processing in async context."""
+    asyncio.run(process_and_send_messages())
 
 
 def main():
     """Main function to set up scheduling and run the bot."""
-    print("Starting Telegram Summary Bot...")
-    print("Will generate summaries every 5 minutes")
+    print("Starting Telegram Message Processing Bot...")
+    print("Will process messages every 5 minutes")
     print("Press Ctrl+C to stop")
     
     # Schedule the task to run every 5 minutes
-    schedule.every(5).minutes.do(run_scheduled_summary)
+    schedule.every(5).minutes.do(run_scheduled_processing)
     
     # Run once immediately
-    run_scheduled_summary()
+    run_scheduled_processing()
     
     # Keep the script running
     try:
@@ -45,7 +49,7 @@ def main():
             schedule.run_pending()
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nStopping Telegram Summary Bot...")
+        print("\nStopping Telegram Message Processing Bot...")
 
 
 if __name__ == "__main__":

@@ -92,13 +92,40 @@ class TelegramMCPClient:
                             for line in messages_text.split('\n'):
                                 line = line.strip()
                                 if line and line.startswith('ID:') and '|' in line:
-                                    messages.append({
-                                        "date": datetime.now().isoformat(),
-                                        "from_user": {"first_name": "Telegram"},
-                                        "text": line  # Store the full line for parsing later
-                                    })
+                                    # Parse the line to extract structured data
+                                    parts = line.split(" | ")
+                                    if len(parts) >= 4:
+                                        msg_id = parts[0].replace("ID: ", "").strip()
+                                        author = parts[1].strip()
+                                        date_str = parts[2].replace("Date: ", "").strip()
+                                        # Keep full message text without truncation
+                                        message_text = " | ".join(parts[3:]).replace("Message: ", "").strip()
+                                        
+                                        if message_text:  # Only include messages with actual text content
+                                            messages.append({
+                                                "id": msg_id,
+                                                "author": author,
+                                                "date": date_str,
+                                                "text": message_text  # This might be truncated
+                                            })
                         
                         print(f"[MCP] Parsed {len(messages)} messages")
+                        
+                        # Get full text for all messages in one batch using the first message ID
+                        if messages:
+                            print(f"[MCP] Getting full text for {len(messages)} messages in batch...")
+                            try:
+                                full_texts = await self._get_full_messages_batch(session, target_chat_id, messages)
+                                for msg in messages:
+                                    if msg["id"] in full_texts:
+                                        msg["text"] = full_texts[msg["id"]]
+                                        print(f"[MCP] Updated message {msg['id']} with full text ({len(msg['text'])} chars)")
+                            except Exception as e:
+                                print(f"[MCP] Could not get full texts in batch: {e}")
+                        
+                        # Build context from the batch of messages
+                        self._build_context_from_batch(messages)
+                        
                         return messages
                     
                     else:
@@ -108,6 +135,120 @@ class TelegramMCPClient:
                 except Exception as e:
                     print(f"[MCP] Error calling tools: {e}")
                     raise RuntimeError(f"Failed to get messages via MCP: {e}")
+    
+    def _build_context_from_batch(self, messages: List[Dict[str, Any]]):
+        """Build context for messages from the batch itself."""
+        # Create a mapping of message ID to message for quick lookup
+        msg_map = {msg["id"]: msg for msg in messages}
+        
+        for msg in messages:
+            context_parts = []
+            text = msg["text"]
+            
+            # Look for "reply to XXXXX" pattern in the text
+            if "reply to " in text:
+                import re
+                reply_matches = re.findall(r'reply to (\d+)', text)
+                
+                for reply_id in reply_matches:
+                    if reply_id in msg_map:
+                        replied_msg = msg_map[reply_id]
+                        # Show the actual content of the replied message
+                        replied_text = replied_msg['text'].replace(f"reply to {reply_id} | ", "")
+                        context_parts.append(f"Отвечает на: {replied_msg['author']}: {replied_text}")
+            
+            # Set context for the message
+            msg["context"] = " | ".join(context_parts) if context_parts else ""
+
+    async def _get_full_messages_batch(self, session: ClientSession, chat_id: int, messages: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Get full text of multiple messages in one batch request."""
+        try:
+            # Convert chat_id to proper format for supergroups
+            if chat_id > 0:
+                chat_id = -1000000000000 - chat_id
+            
+            # Find the middle message ID and use large context to get all messages
+            message_ids = [int(msg["id"]) for msg in messages]
+            min_id = min(message_ids)
+            max_id = max(message_ids)
+            middle_id = min_id + (max_id - min_id) // 2
+            
+            # Use large context size to capture all messages in range
+            context_size = len(messages) + 5  # Add some buffer
+            
+            result = await session.call_tool("get_message_context", {
+                "chat_id": chat_id,
+                "message_id": middle_id,
+                "context_size": context_size
+            })
+            
+            full_texts = {}
+            
+            if result.content and len(result.content) > 0:
+                context_text = result.content[0].text
+                
+                # Parse the context to extract full message texts
+                lines = context_text.split('\n')
+                current_msg_id = None
+                current_content = []
+                
+                for line in lines:
+                    if line.startswith("ID: ") and "|" in line:
+                        # Save previous message if exists
+                        if current_msg_id and current_content:
+                            full_texts[current_msg_id] = "\n".join(current_content).strip()
+                        
+                        # Extract message ID
+                        parts = line.split(" | ")
+                        if len(parts) > 0:
+                            msg_id_part = parts[0].replace("ID: ", "").strip()
+                            current_msg_id = msg_id_part
+                            current_content = []
+                    elif current_msg_id and line.strip() and not line.startswith("Context for message"):
+                        current_content.append(line)
+                
+                # Save last message
+                if current_msg_id and current_content:
+                    full_texts[current_msg_id] = "\n".join(current_content).strip()
+            
+            return full_texts
+        except Exception as e:
+            print(f"[MCP] Error getting full messages batch: {e}")
+            return {}
+    
+    async def get_current_user(self) -> Dict[str, Any]:
+        """Get current user information."""
+        try:
+            async with stdio_client(self.server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    
+                    result = await session.call_tool("get_me", {})
+                    
+                    if result.content and len(result.content) > 0:
+                        user_text = result.content[0].text
+                        print(f"[MCP] Raw user info: {user_text}")
+                        
+                        # Parse JSON format
+                        import json
+                        try:
+                            user_info = json.loads(user_text)
+                            print(f"[MCP] Parsed user info: {user_info}")
+                            return user_info
+                        except json.JSONDecodeError:
+                            # Fallback to line parsing
+                            user_info = {}
+                            for line in user_text.split('\n'):
+                                if ':' in line:
+                                    key, value = line.split(':', 1)
+                                    key_clean = key.strip().lower().replace(' ', '_')
+                                    user_info[key_clean] = value.strip()
+                            return user_info
+                    
+                    return {}
+        except Exception as e:
+            print(f"[MCP] Error getting current user: {e}")
+            return {}
     
     def format_messages_for_summary(self, messages: List[Dict[str, Any]]) -> str:
         """Format messages for LLM summarization."""
