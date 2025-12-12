@@ -17,7 +17,11 @@ async def process_and_send_messages():
         result = await run_processing_workflow(
             source_channels=["BitKogan / Development"],
             time_period_minutes=10,
-            target_channel="infotest"
+            target_channel="infotest",
+            custom_filter_rules=[
+                "Фильтровать сообщения с только эмодзи",
+                "Фильтровать односложные ответы типа 'да', 'нет', 'ок'"
+            ]
         )
         print(result)
     except Exception as e:

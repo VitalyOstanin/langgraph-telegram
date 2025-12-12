@@ -11,7 +11,12 @@ from mcp.client.stdio import stdio_client
 class TelegramMCPClient:
     """MCP client for interacting with telegram-mcp server."""
     
-    def __init__(self, server_path: str = "/home/vyt/devel/telegram-mcp"):
+    def __init__(self, server_path: str = None):
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        if server_path is None:
+            server_path = os.getenv("TELEGRAM_MCP_PATH", "/path/to/telegram-mcp")
         self.server_path = server_path
         self.server_params = StdioServerParameters(
             command="uv",

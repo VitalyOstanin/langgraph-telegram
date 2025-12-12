@@ -16,6 +16,7 @@ class ProcessingState(TypedDict):
     processed_messages: List[Dict]  # Messages after AI analysis
     error: str
     mcp_session: Any           # Store MCP session for reuse
+    custom_filter_rules: List[str]  # Custom filtering rules
 
 
 async def fetch_messages_from_channels_node(state: ProcessingState) -> Dict[str, Any]:
@@ -88,6 +89,12 @@ async def analyze_messages_node(state: ProcessingState) -> Dict[str, Any]:
         
         mentions_text = ", ".join(user_mentions) if user_mentions else "не указаны"
         
+        # Build custom filter rules text
+        custom_rules_text = ""
+        custom_filter_rules = state.get("custom_filter_rules", [])
+        if custom_filter_rules:
+            custom_rules_text = "\n\nДОПОЛНИТЕЛЬНЫЕ ПРАВИЛА ФИЛЬТРАЦИИ:\n" + "\n".join(f"- {rule}" for rule in custom_filter_rules)
+        
         system_prompt = f"""Ты анализируешь сообщения из IT-чата разработчиков. Для каждого сообщения выполни одно из действий:
 
 1. ПЕРЕФРАЗИРОВАТЬ - если сообщение содержит полезную информацию (включая реакции на важные темы, планы, решения)
@@ -101,7 +108,7 @@ async def analyze_messages_node(state: ProcessingState) -> Dict[str, Any]:
 - Сохраняй английские слова из оригинального сообщения, но не добавляй новые английские слова
 - При перефразировании используй только русские слова: "впечатляющий" вместо "impressive", "отзыв" вместо "feedback"
 - ОБЯЗАТЕЛЬНО сохраняй все упоминания пользователей (@username) из оригинального сообщения
-- НЕ используй квадратные скобки [ ] в тексте - они мешают Markdown ссылкам
+- НЕ используй квадратные скобки [ ] в тексте - они мешают Markdown ссылкам{custom_rules_text}
 
 ДОПОЛНИТЕЛЬНО: Определи, упомянут ли ТОЧНО текущий пользователь в сообщении.
 Текущий пользователь может быть упомянут как: {mentions_text}
@@ -297,7 +304,8 @@ def create_processing_workflow():
 async def run_processing_workflow(
     source_channels: List[str] = None,
     time_period_minutes: int = None,  # None = from 8 AM MSK today
-    target_channel: str = "infotest"
+    target_channel: str = "infotest",
+    custom_filter_rules: List[str] = None
 ) -> str:
     """Run the complete message processing workflow."""
     
@@ -322,7 +330,8 @@ async def run_processing_workflow(
         "raw_messages": [],
         "processed_messages": [],
         "error": "",
-        "mcp_session": None
+        "mcp_session": None,
+        "custom_filter_rules": custom_filter_rules or []
     }
     
     result = await workflow.ainvoke(initial_state)
