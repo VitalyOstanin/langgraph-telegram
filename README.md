@@ -21,10 +21,7 @@
 
 ```bash
 # Установка qwen-code CLI
-pip install qwen-code
-
-# Авторизация для получения OAuth креденшиалов
-qwen-code auth login
+npm install -g @qwen-code/qwen-code@latest
 ```
 
 OAuth креденшиалы должны быть сохранены в `~/.qwen/oauth_creds.json`
