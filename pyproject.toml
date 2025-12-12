@@ -1,0 +1,26 @@
+[project]
+name = "telegram-summary-bot"
+version = "0.1.0"
+description = "LangGraph bot for Telegram message summaries"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "httpx>=0.27.0",
+    "schedule>=1.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "ruff>=0.6.0",
+]
