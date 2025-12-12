@@ -56,7 +56,7 @@ cp .env.example .env
 
 ```bash
 # Клонирование репозитория
-git clone <repository-url>
+git clone 'https://github.com/VitalyOstanin/langgraph-telegram'
 cd langgraph-telegram
 
 # Установка зависимостей через uv
