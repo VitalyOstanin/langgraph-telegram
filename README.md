@@ -45,13 +45,6 @@ cp .env.example .env
 
 Telegram-mcp должен быть установлен и настроен через переменную окружения
 
-**Настройка пути к telegram-mcp:**
-```bash
-# Создайте .env файл для настройки путей
-cp .env.example .env
-# Отредактируйте TELEGRAM_MCP_PATH в .env файле с полным путем к telegram-mcp
-```
-
 ## Установка проекта
 
 ```bash
@@ -61,10 +54,13 @@ cd langgraph-telegram
 
 # Установка зависимостей через uv
 uv sync
+```
 
-# Настройка переменных окружения
+**Настройка пути к telegram-mcp:**
+```bash
+# Создайте .env файл для настройки путей
 cp .env.example .env
-# Отредактируйте .env файл с путем к telegram-mcp
+# Отредактируйте TELEGRAM_MCP_PATH в .env файле с полным путем к telegram-mcp
 ```
 
 ## Запуск
