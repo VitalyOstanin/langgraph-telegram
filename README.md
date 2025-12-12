@@ -24,7 +24,7 @@
 npm install -g @qwen-code/qwen-code@latest
 ```
 
-OAuth креденшиалы должны быть сохранены в `~/.qwen/oauth_creds.json`
+Oauth токены qwen по умолчанию сохраняются в `~/.qwen/oauth_creds.json`, откуда их читает текущий проект.
 
 ### 2. Установка и настройка telegram-mcp
 
